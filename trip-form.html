@@ -246,257 +246,223 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
-    const SUPABASE_URL = "https://bfzhvulpymbqzwxorzih.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_aLj5jota1g3icfvF7MROIQ_b4-yKlo3";
+const SUPABASE_URL = "https://bfzhvulpymbqzwxorzih.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_aLj5jota1g3icfvF7MROIQ_b4-yKlo3";
 
-    const supabaseClient = supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const form = document.getElementById("revealForm");
-    const resultBox = document.getElementById("resultBox");
-    const lockedBox = document.getElementById("lockedBox");
-    const revealLink = document.getElementById("revealLink");
-    const editLink = document.getElementById("editLink");
-    const copyButton = document.getElementById("copyButton");
-    const copyEditButton = document.getElementById("copyEditButton");
-    const pageTitle = document.getElementById("pageTitle");
-    const introText = document.getElementById("introText");
-    const submitButton = document.getElementById("submitButton");
+const form = document.getElementById("revealForm");
+const resultBox = document.getElementById("resultBox");
+const lockedBox = document.getElementById("lockedBox");
+const revealLink = document.getElementById("revealLink");
+const editLink = document.getElementById("editLink");
+const copyButton = document.getElementById("copyButton");
+const copyEditButton = document.getElementById("copyEditButton");
+const pageTitle = document.getElementById("pageTitle");
+const introText = document.getElementById("introText");
+const submitButton = document.getElementById("submitButton");
 
-    const params = new URLSearchParams(window.location.search);
-    const editToken = params.get("edit");
+const params = new URLSearchParams(window.location.search);
+const editToken = params.get("edit");
 
-    let editingRevealId = null;
+let editingRevealId = null;
 
-    function createUniqueId() {
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
-    function createEditToken() {
-      return Math.random().toString(36).substring(2, 12).toUpperCase();
-    }
-
-    function getBasePath() {
-      return window.location.pathname.substring(
-        0,
-        window.location.pathname.lastIndexOf("/") + 1
-      );
-    }
-
-    function getRevealPagePath() {
-      return getBasePath() + "index.html";
-    }
-
-   function getFormPagePath() {
-  return getBasePath() + "girl-form.html";
+function createUniqueId() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-    async function loadEditMode() {
-      if (!editToken) return;
+function createEditToken() {
+  return Math.random().toString(36).substring(2, 12).toUpperCase();
+}
 
-      pageTitle.textContent = "Edit Your Reveal";
-      introText.textContent =
-        "You can update your personalised wording below if you are still within your 24-hour edit window.";
-      submitButton.textContent = "Save My Changes";
+function getBasePath() {
+  return window.location.pathname.substring(
+    0,
+    window.location.pathname.lastIndexOf("/") + 1
+  );
+}
 
-      const { data, error } = await supabaseClient
-        .from("gender-design1")
-        .select("*")
-        .eq("edit_token", editToken)
-        .single();
+function getRevealPagePath() {
+  return getBasePath() + "index.html";
+}
 
-      if (error || !data) {
-        form.style.display = "none";
-        lockedBox.style.display = "block";
-        return;
-      }
+function getFormPagePath() {
+  return getBasePath() + "trip-form.html";
+}
 
-      const now = new Date();
-      const lockedAfter = new Date(data.locked_after);
+async function loadEditMode() {
+  if (!editToken) return;
 
-      if (now > lockedAfter) {
-        form.style.display = "none";
-        lockedBox.style.display = "block";
-        return;
-      }
+  pageTitle.textContent = "Edit Your Reveal";
+  introText.textContent =
+    "You can update your personalised reveal below if you are still within your 24-hour edit window.";
+  submitButton.textContent = "Save My Changes";
 
-      editingRevealId = data.id;
+  const { data, error } = await supabaseClient
+    .from("trip-reveals")
+    .select("*")
+    .eq("edit_token", editToken)
+    .single();
 
-      document.getElementById("babyName").value =
-        data.baby_name || "";
+  if (error || !data) {
+    form.style.display = "none";
+    lockedBox.style.display = "block";
+    return;
+  }
 
-      document.getElementById("dueDate").value =
-        data.due_date || "";
+  const now = new Date();
+  const lockedAfter = new Date(data.locked_after);
 
-      document.getElementById("message").value =
-        data.message || "";
+  if (now > lockedAfter) {
+    form.style.display = "none";
+    lockedBox.style.display = "block";
+    return;
+  }
+
+  editingRevealId = data.id;
+
+  document.getElementById("friendName").value = data.friend_name || "";
+  document.getElementById("tripMessage").value = data.trip_message || "";
+}
+
+form.addEventListener("submit", async function(event) {
+  event.preventDefault();
+
+  const friendName = document.getElementById("friendName").value.trim();
+  const tripMessage = document.getElementById("tripMessage").value.trim();
+  const photoFile = document.getElementById("friendPhoto").files[0];
+
+  let photoUrl = null;
+
+  if (photoFile) {
+    const fileExt = photoFile.name.split(".").pop();
+
+    const fileName =
+      `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+    const { error: uploadError } = await supabaseClient.storage
+      .from("photos")
+      .upload(fileName, photoFile);
+
+    if (uploadError) {
+      alert("Image upload failed. Please try again.");
+      console.error(uploadError);
+      return;
     }
 
-    form.addEventListener("submit", async function(event) {
-      event.preventDefault();
+    const { data: publicUrlData } = supabaseClient.storage
+      .from("photos")
+      .getPublicUrl(fileName);
 
-      const babyName =
-        document.getElementById("babyName").value.trim();
+    photoUrl = publicUrlData.publicUrl;
+  }
 
-      const dueDate =
-        document.getElementById("dueDate").value.trim();
+  if (editToken && editingRevealId) {
+    const updateData = {
+      friend_name: friendName,
+      trip_message: tripMessage
+    };
 
-      const message =
-        document.getElementById("message").value.trim();
+    if (photoUrl) {
+      updateData.photo_url = photoUrl;
+    }
 
-      const ultrasoundFile =
-        document.getElementById("ultrasoundImage").files[0];
+    const { error } = await supabaseClient
+      .from("trip-reveals")
+      .update(updateData)
+      .eq("id", editingRevealId)
+      .eq("edit_token", editToken);
 
-      let ultrasoundUrl = null;
+    if (error) {
+      alert("Something went wrong. Please try again.");
+      console.error(error);
+      return;
+    }
 
-      if (ultrasoundFile) {
-        const fileExt =
-          ultrasoundFile.name.split(".").pop();
+    const finalLink =
+      window.location.origin +
+      getRevealPagePath() +
+      "?id=" +
+      editingRevealId +
+      "&updated=" +
+      Date.now();
 
-        const fileName =
-          `${Date.now()}-${Math.random()
-            .toString(36)
-            .substring(2)}.${fileExt}`;
+    const finalEditLink =
+      window.location.origin +
+      getFormPagePath() +
+      "?edit=" +
+      editToken;
 
-        const { error: uploadError } =
-          await supabaseClient.storage
-            .from("ultrasounds")
-            .upload(fileName, ultrasoundFile);
+    revealLink.href = finalLink;
+    revealLink.textContent = finalLink;
 
-        if (uploadError) {
-          alert("Image upload failed. Please try again.");
-          console.error(uploadError);
-          return;
-        }
+    editLink.href = finalEditLink;
+    editLink.textContent = finalEditLink;
 
-        const { data: publicUrlData } =
-          supabaseClient.storage
-            .from("ultrasounds")
-            .getPublicUrl(fileName);
+    resultBox.style.display = "block";
+    form.style.display = "none";
 
-        ultrasoundUrl =
-          publicUrlData.publicUrl;
+    return;
+  }
+
+  const id = createUniqueId();
+  const newEditToken = createEditToken();
+
+  const lockedAfter = new Date();
+  lockedAfter.setHours(lockedAfter.getHours() + 24);
+
+  const { error } = await supabaseClient
+    .from("trip-reveals")
+    .insert([
+      {
+        id: id,
+        friend_name: friendName,
+        photo_url: photoUrl,
+        trip_message: tripMessage,
+        edit_token: newEditToken,
+        locked_after: lockedAfter.toISOString()
       }
+    ]);
 
-      if (editToken && editingRevealId) {
-        const updateData = {
-          baby_name: babyName,
-          due_date: dueDate,
-          message: message
-        };
+  if (error) {
+    alert("Something went wrong. Please try again.");
+    console.error(error);
+    return;
+  }
 
-        if (ultrasoundUrl) {
-          updateData.ultrasound_url = ultrasoundUrl;
-        }
+  const finalLink =
+    window.location.origin +
+    getRevealPagePath() +
+    "?id=" +
+    id;
 
-        const { error } = await supabaseClient
-          .from("gender-design1")
-          .update(updateData)
-          .eq("id", editingRevealId)
-          .eq("edit_token", editToken);
+  const finalEditLink =
+    window.location.origin +
+    getFormPagePath() +
+    "?edit=" +
+    newEditToken;
 
-        if (error) {
-          alert("Something went wrong. Please try again.");
-          console.error(error);
-          return;
-        }
+  revealLink.href = finalLink;
+  revealLink.textContent = finalLink;
 
-        const finalLink =
-          window.location.origin +
-          getRevealPagePath() +
-          "?id=" +
-          editingRevealId +
-          "&updated=" +
-          Date.now();
+  editLink.href = finalEditLink;
+  editLink.textContent = finalEditLink;
 
-        const finalEditLink =
-          window.location.origin +
-          getFormPagePath() +
-          "?edit=" +
-          editToken;
+  resultBox.style.display = "block";
+  form.style.display = "none";
+});
 
-        revealLink.href = finalLink;
-        revealLink.textContent = finalLink;
+copyButton.addEventListener("click", async function() {
+  await navigator.clipboard.writeText(revealLink.href);
+  copyButton.textContent = "Copied!";
+});
 
-        editLink.href = finalEditLink;
-        editLink.textContent = finalEditLink;
+copyEditButton.addEventListener("click", async function() {
+  await navigator.clipboard.writeText(editLink.href);
+  copyEditButton.textContent = "Copied!";
+});
 
-        document.getElementById("editSection").style.display =
-          "block";
-
-        resultBox.querySelector("h2").textContent =
-          "Your changes have been saved!";
-
-        resultBox.querySelector("p").innerHTML =
-          "<strong>Share this updated reveal link with friends & family:</strong>";
-
-        resultBox.style.display = "block";
-        form.style.display = "none";
-
-        return;
-      }
-
-      const id = createUniqueId();
-      const newEditToken = createEditToken();
-
-      const lockedAfter = new Date();
-      lockedAfter.setHours(lockedAfter.getHours() + 24);
-
-      const { error } = await supabaseClient
-        .from("gender-design1")
-        .insert([
-          {
-            id: id,
-            baby_name: babyName,
-            due_date: dueDate,
-            message: message,
-            ultrasound_url: ultrasoundUrl,
-            edit_token: newEditToken,
-            locked_after: lockedAfter.toISOString()
-          }
-        ]);
-
-      if (error) {
-        alert("Something went wrong. Please try again.");
-        console.error(error);
-        return;
-      }
-
-      const finalLink =
-        window.location.origin +
-        getRevealPagePath() +
-        "?id=" +
-        id;
-
-      const finalEditLink =
-        window.location.origin +
-        getFormPagePath() +
-        "?edit=" +
-        newEditToken;
-
-      revealLink.href = finalLink;
-      revealLink.textContent = finalLink;
-
-      editLink.href = finalEditLink;
-      editLink.textContent = finalEditLink;
-
-      resultBox.style.display = "block";
-      form.style.display = "none";
-    });
-
-    copyButton.addEventListener("click", async function() {
-      await navigator.clipboard.writeText(revealLink.href);
-      copyButton.textContent = "Copied!";
-    });
-
-    copyEditButton.addEventListener("click", async function() {
-      await navigator.clipboard.writeText(editLink.href);
-      copyEditButton.textContent = "Copied!";
-    });
-
-    loadEditMode();
-  </script>
+loadEditMode();
+</script>
 </body>
 </html>
