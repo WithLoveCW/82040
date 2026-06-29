@@ -3,8 +3,6 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Will You Be My Bridesmaid?</title>
-
 <style>
 	@font-face {
   font-family: 'JulesColossal';
@@ -336,7 +334,7 @@ async function loadDetails() {
   if (!revealId) return;
 
   const { data, error } = await supabaseClient
- .from("trip-reveals")
+.from("trip_design1")
     .select("*")
     .eq("id", revealId)
     .single();
