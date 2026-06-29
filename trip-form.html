@@ -185,10 +185,8 @@
        Create your personalised reveal in just a few moments. Add a name and optional photo below.
       </p>
 
- <form id="revealForm"> 
-	 
+      <form id="revealForm">
 <label for="friendName">Name(s) (up to 5)</label>
-
 <input
   id="friendName"
   name="friendName"
@@ -196,13 +194,35 @@
   required
 />
 
+<div class="hint">Enter one name or multiple names, up to 5.</div>
+
+<label for="friendPhoto">Upload Your Photo</label>
+<input
+  id="friendPhoto"
+  name="friendPhoto"
+  type="file"
+  accept="image/*"
+/>
+
 <div class="hint">
-  Enter one name or multiple names (up to 5).
+  Optional — if no photo is uploaded, the reveal will use the default image.
 </div>
-	 
-	 
-	 
-	 <label for="friendPhoto">Upload Your Photo</label> <input id="friendPhoto" name="friendPhoto" type="file" accept="image/*" /> <div class="hint"> Add a favourite photo to make your reveal extra special ✨ </div> <label for="tripMessage"> ✨ What would you like the reveal to say? </label> <textarea id="tripMessage" name="tripMessage" required ></textarea> <div class="hint"> Example: We're going to Disney! </div> <button type="submit" id="submitButton"> Create My Reveal </button> </form>
+
+<label for="tripMessage">✨ What would you like the reveal to say?</label>
+<textarea
+  id="tripMessage"
+  name="tripMessage"
+  required
+></textarea>
+
+<div class="hint">
+  Example: Well done with your school work! We're going to Disney! Love, Mum &amp; Dad ❤️
+</div>
+
+<button type="submit" id="submitButton">
+  Create My Reveal
+</button>
+</form>
 
       <div id="resultBox">
         <h2>Your reveal is ready!</h2>
@@ -246,223 +266,253 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
-const SUPABASE_URL = "https://bfzhvulpymbqzwxorzih.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_aLj5jota1g3icfvF7MROIQ_b4-yKlo3";
+    const SUPABASE_URL = "https://bfzhvulpymbqzwxorzih.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_aLj5jota1g3icfvF7MROIQ_b4-yKlo3";
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const TABLE_NAME = "trip-reveals";
+    const PHOTO_BUCKET = "photos";
 
-const form = document.getElementById("revealForm");
-const resultBox = document.getElementById("resultBox");
-const lockedBox = document.getElementById("lockedBox");
-const revealLink = document.getElementById("revealLink");
-const editLink = document.getElementById("editLink");
-const copyButton = document.getElementById("copyButton");
-const copyEditButton = document.getElementById("copyEditButton");
-const pageTitle = document.getElementById("pageTitle");
-const introText = document.getElementById("introText");
-const submitButton = document.getElementById("submitButton");
+    const supabaseClient = supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
 
-const params = new URLSearchParams(window.location.search);
-const editToken = params.get("edit");
+    const form = document.getElementById("revealForm");
+    const resultBox = document.getElementById("resultBox");
+    const lockedBox = document.getElementById("lockedBox");
+    const revealLink = document.getElementById("revealLink");
+    const editLink = document.getElementById("editLink");
+    const copyButton = document.getElementById("copyButton");
+    const copyEditButton = document.getElementById("copyEditButton");
+    const pageTitle = document.getElementById("pageTitle");
+    const introText = document.getElementById("introText");
+    const submitButton = document.getElementById("submitButton");
 
-let editingRevealId = null;
+    const params = new URLSearchParams(window.location.search);
+    const editToken = params.get("edit");
 
-function createUniqueId() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
+    let editingRevealId = null;
 
-function createEditToken() {
-  return Math.random().toString(36).substring(2, 12).toUpperCase();
-}
-
-function getBasePath() {
-  return window.location.pathname.substring(
-    0,
-    window.location.pathname.lastIndexOf("/") + 1
-  );
-}
-
-function getRevealPagePath() {
-  return getBasePath() + "index.html";
-}
-
-function getFormPagePath() {
-  return getBasePath() + "trip-form.html";
-}
-
-async function loadEditMode() {
-  if (!editToken) return;
-
-  pageTitle.textContent = "Edit Your Reveal";
-  introText.textContent =
-    "You can update your personalised reveal below if you are still within your 24-hour edit window.";
-  submitButton.textContent = "Save My Changes";
-
-  const { data, error } = await supabaseClient
-    .from("trip-reveals")
-    .select("*")
-    .eq("edit_token", editToken)
-    .single();
-
-  if (error || !data) {
-    form.style.display = "none";
-    lockedBox.style.display = "block";
-    return;
-  }
-
-  const now = new Date();
-  const lockedAfter = new Date(data.locked_after);
-
-  if (now > lockedAfter) {
-    form.style.display = "none";
-    lockedBox.style.display = "block";
-    return;
-  }
-
-  editingRevealId = data.id;
-
-  document.getElementById("friendName").value = data.friend_name || "";
-  document.getElementById("tripMessage").value = data.trip_message || "";
-}
-
-form.addEventListener("submit", async function(event) {
-  event.preventDefault();
-
-  const friendName = document.getElementById("friendName").value.trim();
-  const tripMessage = document.getElementById("tripMessage").value.trim();
-  const photoFile = document.getElementById("friendPhoto").files[0];
-
-  let photoUrl = null;
-
-  if (photoFile) {
-    const fileExt = photoFile.name.split(".").pop();
-
-    const fileName =
-      `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-    const { error: uploadError } = await supabaseClient.storage
-      .from("photos")
-      .upload(fileName, photoFile);
-
-    if (uploadError) {
-      alert("Image upload failed. Please try again.");
-      console.error(uploadError);
-      return;
+    function createUniqueId() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
     }
 
-    const { data: publicUrlData } = supabaseClient.storage
-      .from("photos")
-      .getPublicUrl(fileName);
-
-    photoUrl = publicUrlData.publicUrl;
-  }
-
-  if (editToken && editingRevealId) {
-    const updateData = {
-      friend_name: friendName,
-      trip_message: tripMessage
-    };
-
-    if (photoUrl) {
-      updateData.photo_url = photoUrl;
+    function createEditToken() {
+      return Math.random().toString(36).substring(2, 12).toUpperCase();
     }
 
-    const { error } = await supabaseClient
-      .from("trip-reveals")
-      .update(updateData)
-      .eq("id", editingRevealId)
-      .eq("edit_token", editToken);
-
-    if (error) {
-      alert("Something went wrong. Please try again.");
-      console.error(error);
-      return;
+    function getBasePath() {
+      return window.location.pathname.substring(
+        0,
+        window.location.pathname.lastIndexOf("/") + 1
+      );
     }
 
-    const finalLink =
-      window.location.origin +
-      getRevealPagePath() +
-      "?id=" +
-      editingRevealId +
-      "&updated=" +
-      Date.now();
+    function getRevealPagePath() {
+      return getBasePath() + "index.html";
+    }
 
-    const finalEditLink =
-      window.location.origin +
-      getFormPagePath() +
-      "?edit=" +
-      editToken;
+    function getFormPagePath() {
+      return getBasePath() + "trip-form.html";
+    }
 
-    revealLink.href = finalLink;
-    revealLink.textContent = finalLink;
+    function showError(message, error) {
+      console.error(message, error || "");
+      alert(message);
+      submitButton.disabled = false;
+      submitButton.textContent = editToken ? "Save My Changes" : "Create My Reveal";
+    }
 
-    editLink.href = finalEditLink;
-    editLink.textContent = finalEditLink;
+    async function loadEditMode() {
+      if (!editToken) return;
 
-    resultBox.style.display = "block";
-    form.style.display = "none";
+      pageTitle.textContent = "Edit Your Reveal";
+      introText.textContent =
+        "You can update your personalised reveal below if you are still within your 24-hour edit window.";
+      submitButton.textContent = "Save My Changes";
 
-    return;
-  }
+      const { data, error } = await supabaseClient
+        .from(TABLE_NAME)
+        .select("*")
+        .eq("edit_token", editToken)
+        .single();
 
-  const id = createUniqueId();
-  const newEditToken = createEditToken();
-
-  const lockedAfter = new Date();
-  lockedAfter.setHours(lockedAfter.getHours() + 24);
-
-  const { error } = await supabaseClient
-    .from("trip-reveals")
-    .insert([
-      {
-        id: id,
-        friend_name: friendName,
-        photo_url: photoUrl,
-        trip_message: tripMessage,
-        edit_token: newEditToken,
-        locked_after: lockedAfter.toISOString()
+      if (error || !data) {
+        form.style.display = "none";
+        lockedBox.style.display = "block";
+        return;
       }
-    ]);
 
-  if (error) {
-    alert("Something went wrong. Please try again.");
-    console.error(error);
-    return;
-  }
+      const now = new Date();
+      const lockedAfter = new Date(data.locked_after);
 
-  const finalLink =
-    window.location.origin +
-    getRevealPagePath() +
-    "?id=" +
-    id;
+      if (now > lockedAfter) {
+        form.style.display = "none";
+        lockedBox.style.display = "block";
+        return;
+      }
 
-  const finalEditLink =
-    window.location.origin +
-    getFormPagePath() +
-    "?edit=" +
-    newEditToken;
+      editingRevealId = data.id;
 
-  revealLink.href = finalLink;
-  revealLink.textContent = finalLink;
+      document.getElementById("friendName").value = data.friend_name || "";
+      document.getElementById("tripMessage").value = data.trip_message || "";
+    }
 
-  editLink.href = finalEditLink;
-  editLink.textContent = finalEditLink;
+    form.addEventListener("submit", async function(event) {
+      event.preventDefault();
 
-  resultBox.style.display = "block";
-  form.style.display = "none";
-});
+      submitButton.disabled = true;
+      submitButton.textContent = editToken ? "Saving..." : "Creating...";
 
-copyButton.addEventListener("click", async function() {
-  await navigator.clipboard.writeText(revealLink.href);
-  copyButton.textContent = "Copied!";
-});
+      const friendName = document.getElementById("friendName").value.trim();
+      const tripMessage = document.getElementById("tripMessage").value.trim();
+      const photoFile = document.getElementById("friendPhoto").files[0];
 
-copyEditButton.addEventListener("click", async function() {
-  await navigator.clipboard.writeText(editLink.href);
-  copyEditButton.textContent = "Copied!";
-});
+      if (!friendName || !tripMessage) {
+        showError("Please add name(s) and a reveal message.");
+        return;
+      }
 
-loadEditMode();
-</script>
+      let photoUrl = null;
+
+      if (photoFile) {
+        const fileExt = photoFile.name.split(".").pop();
+
+        const fileName =
+          `${Date.now()}-${Math.random()
+            .toString(36)
+            .substring(2)}.${fileExt}`;
+
+        const { error: uploadError } =
+          await supabaseClient.storage
+            .from(PHOTO_BUCKET)
+            .upload(fileName, photoFile);
+
+        if (uploadError) {
+          showError("Image upload failed. Please check the photo bucket name is correct.", uploadError);
+          return;
+        }
+
+        const { data: publicUrlData } =
+          supabaseClient.storage
+            .from(PHOTO_BUCKET)
+            .getPublicUrl(fileName);
+
+        photoUrl = publicUrlData.publicUrl;
+      }
+
+      if (editToken && editingRevealId) {
+        const updateData = {
+          friend_name: friendName,
+          trip_message: tripMessage
+        };
+
+        if (photoUrl) {
+          updateData.photo_url = photoUrl;
+        }
+
+        const { error } = await supabaseClient
+          .from(TABLE_NAME)
+          .update(updateData)
+          .eq("id", editingRevealId)
+          .eq("edit_token", editToken);
+
+        if (error) {
+          showError("Something went wrong while saving your changes. Please check your Supabase table policies.", error);
+          return;
+        }
+
+        const finalLink =
+          window.location.origin +
+          getRevealPagePath() +
+          "?id=" +
+          editingRevealId +
+          "&updated=" +
+          Date.now();
+
+        const finalEditLink =
+          window.location.origin +
+          getFormPagePath() +
+          "?edit=" +
+          editToken;
+
+        revealLink.href = finalLink;
+        revealLink.textContent = finalLink;
+
+        editLink.href = finalEditLink;
+        editLink.textContent = finalEditLink;
+
+        document.getElementById("editSection").style.display = "block";
+
+        resultBox.querySelector("h2").textContent =
+          "Your changes have been saved!";
+
+        resultBox.querySelector("p").innerHTML =
+          "<strong>Share this updated reveal link with friends &amp; family:</strong>";
+
+        resultBox.style.display = "block";
+        form.style.display = "none";
+
+        return;
+      }
+
+      const id = createUniqueId();
+      const newEditToken = createEditToken();
+
+      const lockedAfter = new Date();
+      lockedAfter.setHours(lockedAfter.getHours() + 24);
+
+      const { error } = await supabaseClient
+        .from(TABLE_NAME)
+        .insert([
+          {
+            id: id,
+            friend_name: friendName,
+            photo_url: photoUrl,
+            trip_message: tripMessage,
+            edit_token: newEditToken,
+            locked_after: lockedAfter.toISOString()
+          }
+        ]);
+
+      if (error) {
+        showError("Something went wrong while creating the reveal. Please check your Supabase table columns and insert policy.", error);
+        return;
+      }
+
+      const finalLink =
+        window.location.origin +
+        getRevealPagePath() +
+        "?id=" +
+        id;
+
+      const finalEditLink =
+        window.location.origin +
+        getFormPagePath() +
+        "?edit=" +
+        newEditToken;
+
+      revealLink.href = finalLink;
+      revealLink.textContent = finalLink;
+
+      editLink.href = finalEditLink;
+      editLink.textContent = finalEditLink;
+
+      resultBox.style.display = "block";
+      form.style.display = "none";
+    });
+
+    copyButton.addEventListener("click", async function() {
+      await navigator.clipboard.writeText(revealLink.href);
+      copyButton.textContent = "Copied!";
+    });
+
+    copyEditButton.addEventListener("click", async function() {
+      await navigator.clipboard.writeText(editLink.href);
+      copyEditButton.textContent = "Copied!";
+    });
+
+    loadEditMode();
+  </script>
 </body>
 </html>
