@@ -295,6 +295,9 @@ text-shadow:
 <audio id="winSound" preload="auto">
   <source src="./sounds/win.mp3" type="audio/mpeg">
 </audio>
+	<audio id="backgroundMusic" loop>
+  <source src="./sounds/A-Star-Shines-for-You.wav" type="audio/wav">
+</audio>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
@@ -312,6 +315,13 @@ function goToPage(pageNumber) {
   });
 
   document.getElementById(`page${pageNumber}`).classList.add("active");
+	if (pageNumber === 2) {
+  const music = document.getElementById("backgroundMusic");
+
+  music.volume = 0.25;
+
+  music.play().catch(() => {});
+}
 
   if (pageNumber === 3) {
     setTimeout(setupScratch, 100);
